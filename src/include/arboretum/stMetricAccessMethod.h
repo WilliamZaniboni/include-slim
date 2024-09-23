@@ -127,6 +127,16 @@ class stMetricAccessMethod{
                author for more details.");
       }//end RangeQuery
 
+       virtual tResult * GetEmptyResult(){
+         throw std::logic_error("Unsupported method! Contact the tree \
+               author for more details.");
+      }
+
+       virtual tResult * ExistsQuery(tObject * sample, double range){
+         throw std::logic_error("Unsupported method! Contact the tree \
+               author for more details.");
+      }
+
       /**
       * This method will perform a k nearest neighbour query. It is a new
       * version that do a range query with a dynamic radius.
@@ -141,7 +151,7 @@ class stMetricAccessMethod{
       * @warning The instance of tResult returned must be destroied by user.
       */
       virtual tResult * NearestQuery(tObject * sample, u_int32_t k,
-            bool tie = false){
+            bool tie = false, bool tiebreaker = false){
          throw std::logic_error("Unsupported method! Contact the tree \
                author for more details.");
       }//end NearestQuery

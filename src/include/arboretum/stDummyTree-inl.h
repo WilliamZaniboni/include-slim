@@ -63,7 +63,7 @@ bool stDummyTree<ObjectType, EvaluatorType>::Add(tObject * obj){
    int id;
 
    // Does it fit ?
-   if (obj->GetSerializedSize() > this->myPageManager->GetMinimumPageSize() - 16){
+   if (obj->GetIncludedSerializedSize() > this->myPageManager->GetMinimumPageSize() - 16){
       return false;
    }//end if
 
@@ -77,7 +77,7 @@ bool stDummyTree<ObjectType, EvaluatorType>::Add(tObject * obj){
       currNode = new stDummyNode(currPage);
 
       // Try to add
-      id = currNode->AddEntry(obj->GetSerializedSize(), obj->Serialize());
+      id = currNode->AddEntry(obj->GetIncludedSerializedSize(), obj->IncludedSerialize());
       if (id >= 0){
          // I was able to add.
          this->myPageManager->WritePage(currPage);
@@ -106,7 +106,7 @@ bool stDummyTree<ObjectType, EvaluatorType>::Add(tObject * obj){
       Header->NodeCount++;
 
       // I'll add it here
-      id = currNode->AddEntry(obj->GetSerializedSize(), obj->Serialize());
+      id = currNode->AddEntry(obj->GetIncludedSerializedSize(), obj->IncludedSerialize());
       
       // Write the new node
       this->myPageManager->WritePage(currPage);
@@ -155,16 +155,23 @@ stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::RangeQuery(
       // Lets check all objects in this node
       for (i = 0; i < currNode->GetNumberOfEntries(); i++){
          // Rebuild the object
-         tmp.Unserialize(currNode->GetObject(i), currNode->GetObjectSize(i));
+         tmp.IncludedUnserialize(currNode->GetObject(i), currNode->GetObjectSize(i));
 
-         // Evaluate distance
-         distance = this->myMetricEvaluator->GetDistance(tmp, *sample);
+         if(this->myMetricEvaluator->GetFilter(tmp, *sample) == true){
 
-         // Is it qualified ?
-         if (distance <= range){
-            // Yes! I'm qualified !
-            result->AddPair(tmp.Clone(), distance);
-         }//end if
+            // Evaluate distance
+            distance = this->myMetricEvaluator->GetDistance(tmp, *sample);
+
+            // Is it qualified ?
+            if (distance <= range){
+
+                // Yes! I'm qualified !
+               result->AddPair(tmp.Clone(), distance);
+
+             
+            }//end if
+
+         }
       }//end for
 
       // Next PageID...
@@ -178,6 +185,66 @@ stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::RangeQuery(
    // Return the result.
    return result;
 }//end stDummyTree<ObjectType><EvaluatorType>::RangeQuery
+
+//------------------------------------------------------------------------------
+template <class ObjectType, class EvaluatorType>
+stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::ExistsQuery(
+                              tObject * sample, double range){
+   stPage * currPage;
+   stDummyNode * currNode;
+   tResult * result;
+   tObject tmp;
+   double distance;
+   u_int32_t i;
+   u_int32_t nextPageID;
+
+   // Create result
+   result = new tResult();
+   result->SetQueryInfo(sample->Clone(), RANGEQUERY, -1, range, false);
+
+   // First node
+   nextPageID = this->GetRoot();
+
+   // Let's search
+   while (nextPageID != 0){
+      // Get node
+      currPage = this->myPageManager->GetPage(nextPageID);
+      currNode = new stDummyNode(currPage);
+
+      // Lets check all objects in this node
+      for (i = 0; i < currNode->GetNumberOfEntries(); i++){
+         // Rebuild the object
+         tmp.IncludedUnserialize(currNode->GetObject(i), currNode->GetObjectSize(i));
+
+         if(this->myMetricEvaluator->GetFilter(tmp, *sample) == true){
+
+            // Evaluate distance
+            distance = this->myMetricEvaluator->GetDistance(tmp, *sample);
+
+            // Is it qualified ?
+            if (distance <= range){
+
+                // Yes! I'm qualified !
+               result->AddPair(tmp.Clone(), distance);
+
+               return result;
+             
+            }//end if
+
+          }
+      }//end for
+
+      // Next PageID...
+      nextPageID = currNode->GetNextNode();
+
+      // Free it all
+      delete currNode;
+      this->myPageManager->ReleasePage(currPage);
+   }//end while
+
+   // Return the result.
+   return result;
+}
 
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
@@ -234,7 +301,7 @@ stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::ReversedRangeQuer
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
 stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::NearestQuery(
-                     tObject * sample, u_int32_t k, bool tie){
+                     tObject * sample, u_int32_t k, bool tie, bool tiebreaker){
    stPage * currPage;
    stDummyNode * currNode;
    tResult * result;
@@ -250,6 +317,8 @@ stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::NearestQuery(
    // First node
    nextPageID = this->GetRoot();
 
+   double rangeK;
+
    // Let's search
    while (nextPageID != 0){
       // Get node
@@ -259,23 +328,113 @@ stResult<ObjectType> * stDummyTree<ObjectType, EvaluatorType>::NearestQuery(
       // Lets check all objects in this node
       for (i = 0; i < currNode->GetNumberOfEntries(); i++){
          // Rebuild the object
-         tmp.Unserialize(currNode->GetObject(i), currNode->GetObjectSize(i));
+
+         tmp.IncludedUnserialize(currNode->GetObject(i), currNode->GetObjectSize(i));
+
+
+         if(this->myMetricEvaluator->GetFilter(tmp, *sample) == true){
 
          // Evaluate distance
          distance = this->myMetricEvaluator->GetDistance(tmp, *sample);
 
          // Is it qualified ?
-         if (result->GetNumOfEntries() < k){
-            // Unnecessary to check. Just add.
-            result->AddPair(tmp.Clone(), distance);
-         }else{
-            // Will I add ?
-            if (distance <= result->GetMaximumDistance()){
-               // Yes! I'll.
+            if (result->GetNumOfEntries() < k){
+               // Unnecessary to check. Just add.
                result->AddPair(tmp.Clone(), distance);
-               result->Cut(k);
-            }//end if
-         }//end if
+               }else{
+
+               if(tiebreaker){
+
+                  rangeK = result->GetMaximumDistance();
+
+                  if(result->GetNumOfEntries() == k && distance < rangeK){
+
+                        //I already have k elements. The new element is not a tie. I add it, cut the last element and recalculate the distance.
+
+                        result->AddPair((ObjectType*) tmp.Clone(), distance);
+
+                        int index = k;
+
+                        std::list<ObjectType> sortList;
+
+                        while(result->GetPair(index)->GetDistance() == rangeK){
+                        
+                           ObjectType* objAux = (ObjectType*) result->GetPair(index)->GetObject()->Clone();  
+
+                           sortList.push_front(*objAux);
+
+                           result->RemoveLast();
+
+                           index--;
+
+                           if(index == -1){
+                              break;
+                           }
+
+                        }
+                        
+                        sortList.sort();
+
+                        for(typename std::list<ObjectType>::iterator iter= sortList.begin(); iter != sortList.end(); iter++){
+
+                           result->AddPair((ObjectType*) iter->Clone(), rangeK);
+
+                        }
+
+                        result->Cut(k);
+
+                     }else if(result->GetNumOfEntries() == k && distance == rangeK){
+                        //I already have k elements. The new element is a tie.
+
+                        result->AddPair((ObjectType*) tmp.Clone(), distance);
+
+                        int index = k;
+
+                        std::list<ObjectType> sortList;
+
+                        while(result->GetPair(index)->GetDistance() == rangeK){
+                        
+                           ObjectType* objAux = (ObjectType*) result->GetPair(index)->GetObject()->Clone();  
+
+                           sortList.push_front(*objAux);
+
+                           result->RemoveLast();
+
+                           index--;
+
+                           if(index == -1){
+                              break;
+                           }
+
+                        }
+
+                        sortList.sort();
+
+                        for(typename std::list<ObjectType>::iterator iter= sortList.begin(); iter != sortList.end(); iter++){
+
+                           result->AddPair((ObjectType*) iter->Clone(), rangeK);
+
+                        }
+                           
+                        result->Cut(k);
+
+                     }
+
+               }
+
+               else{
+                  // Will I add ?
+                  if (distance <= result->GetMaximumDistance()){
+                     // Yes! I'll.
+                     result->AddPair(tmp.Clone(), distance);
+                     result->Cut(k);
+                  }//end if
+               }
+             }//end if
+
+          }
+
+
       }//end for
 
       // Next Node...

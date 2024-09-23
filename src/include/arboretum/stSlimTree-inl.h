@@ -22,7 +22,7 @@
 * @author Adriano Siqueira Arantes (arantes@icmc.usp.br)
 * @author Thiago Galbiatti Vespa (thiago@icmc.usp.br)
 */
-
+#include <iostream>
 //==============================================================================
 // Class stSlimLogicNode
 //------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ template <class ObjectType, class EvaluatorType>
 int stSlimLogicNode<ObjectType, EvaluatorType>::AddEntry(u_int32_t size, const unsigned char * object){
    if (Count < MaxEntries){
       Entries[Count].Object = new ObjectType();
-      Entries[Count].Object->Unserialize(object, size);
+      Entries[Count].Object->IncludedUnserialize(object, size);
       Entries[Count].Mine = true;
       Count++;
       return Count - 1;
@@ -80,6 +80,19 @@ int stSlimLogicNode<ObjectType, EvaluatorType>::AddEntry(u_int32_t size, const u
    }//end if
 }//end stSlimLogicNode<ObjectType, EvaluatorType>::AddEntry
 
+template <class ObjectType, class EvaluatorType>
+int stSlimLogicNode<ObjectType, EvaluatorType>::AddEntryForIndex(u_int32_t size, const unsigned char * object){
+   if (Count < MaxEntries){
+      Entries[Count].Object = new ObjectType();  
+      Entries[Count].Object->Unserialize(object, size);
+      Entries[Count].Mine = true;
+      Count++;
+      return Count - 1;
+   }else{
+      return -1;
+   }//end if
+}
+
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
 void stSlimLogicNode<ObjectType, EvaluatorType>::AddIndexNode(stSlimIndexNode * node){
@@ -87,7 +100,9 @@ void stSlimLogicNode<ObjectType, EvaluatorType>::AddIndexNode(stSlimIndexNode * 
    int idx;
 
    for (i = 0; i < node->GetNumberOfEntries(); i++){
-      idx = AddEntry(node->GetObjectSize(i), node->GetObject(i));
+
+      idx = AddEntryForIndex(node->GetObjectSize(i), node->GetObject(i));
+   
       SetEntry(idx, node->GetIndexEntry(i).PageID,
                     node->GetIndexEntry(i).NEntries,
                     node->GetIndexEntry(i).Radius);
@@ -295,8 +310,8 @@ u_int32_t stSlimLogicNode<ObjectType, EvaluatorType>::TestDistribution(
       // Add to node 0
       currObj = idx0[l0].Index;
       Entries[currObj].Mapped = true;
-      idx = node0->AddEntry(Entries[currObj].Object->GetSerializedSize(),
-                            Entries[currObj].Object->Serialize());
+      idx = node0->AddEntry(Entries[currObj].Object->GetIncludedSerializedSize(),
+                            Entries[currObj].Object->IncludedSerialize());
       node0->GetLeafEntry(idx).Distance = idx0[l0].Distance;
 
       // Find a candidate for node 1
@@ -306,8 +321,8 @@ u_int32_t stSlimLogicNode<ObjectType, EvaluatorType>::TestDistribution(
       // Add to node 1
       currObj = idx1[l1].Index;
       Entries[currObj].Mapped = true;
-      idx = node1->AddEntry(Entries[currObj].Object->GetSerializedSize(),
-                            Entries[currObj].Object->Serialize());
+      idx = node1->AddEntry(Entries[currObj].Object->GetIncludedSerializedSize(),
+                            Entries[currObj].Object->IncludedSerialize());
       node1->GetLeafEntry(idx).Distance = idx1[l1].Distance;
    }//end for
 
@@ -317,26 +332,26 @@ u_int32_t stSlimLogicNode<ObjectType, EvaluatorType>::TestDistribution(
          Entries[i].Mapped = true;
          if (Entries[i].Distance[0] < Entries[i].Distance[1]){
             // Try to put on node 0 first
-            idx = node0->AddEntry(Entries[i].Object->GetSerializedSize(),
-                                  Entries[i].Object->Serialize());
+            idx = node0->AddEntry(Entries[i].Object->GetIncludedSerializedSize(),
+                                  Entries[i].Object->IncludedSerialize());
             if (idx >= 0){
                node0->GetLeafEntry(idx).Distance = Entries[i].Distance[0];
             }else{
                // Let's put it in the node 1 since it doesn't fit in the node 0
-               idx = node1->AddEntry(Entries[i].Object->GetSerializedSize(),
-                                     Entries[i].Object->Serialize());
+               idx = node1->AddEntry(Entries[i].Object->GetIncludedSerializedSize(),
+                                     Entries[i].Object->IncludedSerialize());
                node1->GetLeafEntry(idx).Distance = Entries[i].Distance[1];
             }//end if
          }else{
             // Try to put on node 1 first
-            idx = node1->AddEntry(Entries[i].Object->GetSerializedSize(),
-                                  Entries[i].Object->Serialize());
+            idx = node1->AddEntry(Entries[i].Object->GetIncludedSerializedSize(),
+                                  Entries[i].Object->IncludedSerialize());
             if (idx >= 0){
                node1->GetLeafEntry(idx).Distance = Entries[i].Distance[1];
             }else{
                // Let's put it in the node 0 since it doesn't fit in the node 1
-               idx = node0->AddEntry(Entries[i].Object->GetSerializedSize(),
-                                     Entries[i].Object->Serialize());
+               idx = node0->AddEntry(Entries[i].Object->GetIncludedSerializedSize(),
+                                     Entries[i].Object->IncludedSerialize());
                node0->GetLeafEntry(idx).Distance = Entries[i].Distance[0];
             }//end if
          }//end if
@@ -716,41 +731,41 @@ int stSlimMSTSplitter<ObjectType, EvaluatorType>::Distribute(
    PerformMST();
 
    // Add representatives first
-   idx = node0->AddEntry(Node->GetRepresentative(0)->GetSerializedSize(),
-                         Node->GetRepresentative(0)->Serialize());
+   idx = node0->AddEntry(Node->GetRepresentative(0)->GetIncludedSerializedSize(),
+                         Node->GetRepresentative(0)->IncludedSerialize());
    node0->GetLeafEntry(idx).Distance = 0.0;
-   idx = node1->AddEntry(Node->GetRepresentative(1)->GetSerializedSize(),
-                         Node->GetRepresentative(1)->Serialize());
+   idx = node1->AddEntry(Node->GetRepresentative(1)->GetIncludedSerializedSize(),
+                         Node->GetRepresentative(1)->IncludedSerialize());
    node1->GetLeafEntry(idx).Distance = 0.0;
 
    // Distribute us...
    for (i = 0; i < N; i++){
       if (!Node->IsRepresentative(i)){
          if (ObjectCluster[i] == Cluster0){
-            idx = node0->AddEntry(Node->GetObject(i)->GetSerializedSize(),
-                                  Node->GetObject(i)->Serialize());
+            idx = node0->AddEntry(Node->GetObject(i)->GetIncludedSerializedSize(),
+                                  Node->GetObject(i)->IncludedSerialize());
             if (idx >= 0){
                // Insertion Ok!
                node0->GetLeafEntry(idx).Distance =
                      DMat[i][Node->GetRepresentativeIndex(0)];
             }else{
                // Oops! We must put it in other node
-               idx = node1->AddEntry(Node->GetObject(i)->GetSerializedSize(),
-                                     Node->GetObject(i)->Serialize());
+               idx = node1->AddEntry(Node->GetObject(i)->GetIncludedSerializedSize(),
+                                     Node->GetObject(i)->IncludedSerialize());
                node1->GetLeafEntry(idx).Distance =
                      DMat[i][Node->GetRepresentativeIndex(1)];
             }//end if
          }else{
-            idx = node1->AddEntry(Node->GetObject(i)->GetSerializedSize(),
-                                  Node->GetObject(i)->Serialize());
+            idx = node1->AddEntry(Node->GetObject(i)->GetIncludedSerializedSize(),
+                                  Node->GetObject(i)->IncludedSerialize());
             if (idx >= 0){
                // Insertion Ok!
                node1->GetLeafEntry(idx).Distance =
                      DMat[i][Node->GetRepresentativeIndex(1)];
             }else{
                // Oops! We must put it in other node
-               idx = node0->AddEntry(Node->GetObject(i)->GetSerializedSize(),
-                                     Node->GetObject(i)->Serialize());
+               idx = node0->AddEntry(Node->GetObject(i)->GetIncludedSerializedSize(),
+                                     Node->GetObject(i)->IncludedSerialize());
                node0->GetLeafEntry(idx).Distance =
                      DMat[i][Node->GetRepresentativeIndex(0)];
             }//end if
@@ -925,9 +940,11 @@ void tmpl_stSlimTree::ResetFractalStatistics(){
 }//end ResetFractalStatistics
 #endif //__stFRACTALQUERY__
 
+
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
 bool tmpl_stSlimTree::Add(ObjectType *newObj){
+   //cout << "No add \n";
    stSubtreeInfo promo1;
    stSubtreeInfo promo2;
    int insertIdx;
@@ -940,8 +957,8 @@ bool tmpl_stSlimTree::Add(ObjectType *newObj){
       this->SetRoot(auxPage->GetPageID());
 
       // Insert the new object.
-      insertIdx = leafNode->AddEntry(newObj->GetSerializedSize(),
-                                     newObj->Serialize());
+      insertIdx = leafNode->AddEntry(newObj->GetIncludedSerializedSize(),
+                                     newObj->IncludedSerialize());
       // Test if the page size is too big to store an object.
       if (insertIdx < 0){
          // Oops. There is an error during the insertion.
@@ -970,6 +987,7 @@ bool tmpl_stSlimTree::Add(ObjectType *newObj){
       if (InsertRecursive(GetRoot(), newObj, NULL, promo1, promo2) == PROMOTION){
          // Split occurred! We must create a new root because it is required.
          // The tree will aacquire a new root.
+        // std::cout<< "Add new root" << "\n";
          AddNewRoot(promo1.Rep, promo1.Radius, promo1.RootID, promo1.NObjects,
                     promo2.Rep, promo2.Radius, promo2.RootID, promo2.NObjects);
          delete promo1.Rep;
@@ -1237,7 +1255,6 @@ int tmpl_stSlimTree::InsertRecursive(
    double dist;        // Temporary distance.
    int subtree;            // Subtree
    ObjectType * subRep;    // Subtree representative.
-
    // Read node...
    currPage = tMetricTree::myPageManager->GetPage(currNodeID);
    currNode = stSlimNode::CreateNode(currPage);
@@ -1526,8 +1543,8 @@ int tmpl_stSlimTree::InsertRecursive(
       leafNode = (stSlimLeafNode *) currNode;
 
       // Try to insert...
-      insertIdx = leafNode->AddEntry(newObj->GetSerializedSize(),
-                                     newObj->Serialize());
+      insertIdx = leafNode->AddEntry(newObj->GetIncludedSerializedSize(),
+                                     newObj->IncludedSerialize());
       if (insertIdx >= 0){
          // Don't split!
          // Calculate distance and verify if it is a new radius!
@@ -1896,6 +1913,9 @@ void tmpl_stSlimTree::SplitLeaf(
    ObjectType * rRep;
    u_int32_t numberOfEntries = oldNode->GetNumberOfEntries();
 
+   //std::cout << "Split leaf \n";
+
+
    // Create the new tLogicNode
    logicNode = new tLogicNode(numberOfEntries + 1);
    logicNode->SetMinOccupation((u_int32_t )(GetMinOccupation() * (numberOfEntries + 1)));
@@ -2016,6 +2036,8 @@ void tmpl_stSlimTree::SplitIndex(
    ObjectType * lRep;
    ObjectType * rRep;
    u_int32_t numberOfEntries = oldNode->GetNumberOfEntries();
+
+   std::cout << "Split index \n";
 
    // Create the new tLogicNode
    logicNode = new tLogicNode(numberOfEntries + 2);
@@ -4296,6 +4318,16 @@ stResultPaged<ObjectType> * tmpl_stSlimTree::BackwardRangeQuery(
    return result;
 }//end stSlimTree<ObjectType, EvaluatorType>::BackwardRangeQuery
 
+
+template <class ObjectType, class EvaluatorType>
+stResult<ObjectType> * tmpl_stSlimTree::GetEmptyResult(
+            ){
+               
+   tResult * result = new tResult(); 
+
+   return result;
+
+}
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
 stResult<ObjectType> * tmpl_stSlimTree::RangeQuery(
@@ -4395,14 +4427,19 @@ stResult<ObjectType> * tmpl_stSlimTree::RangeQuery(
          // For each entry...
          for (idx = 0; idx < numberOfEntries; idx++) {
             // Rebuild the object
-            tmpObj.Unserialize(leafNode->GetObject(idx),
+            tmpObj.IncludedUnserialize(leafNode->GetObject(idx),
                                leafNode->GetObjectSize(idx));
+
+            if(this->myMetricEvaluator->GetFilter(tmpObj, *sample) == true){
+
             // Evaluate distance
             distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
             // is it a object that qualified?
             if (distance <= range){
                // Yes! Put it in the result set.
-               result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+
+                  result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+               }
             }//end if
          }//end for
       }//end else
@@ -4539,14 +4576,21 @@ void tmpl_stSlimTree::RangeQuery(
             if ( fabs(distanceRepres - leafNode->GetLeafEntry(idx).Distance) <=
                       range){
                // Rebuild the object
-               tmpObj.Unserialize(leafNode->GetObject(idx),
+               tmpObj.IncludedUnserialize(leafNode->GetObject(idx),
                                   leafNode->GetObjectSize(idx));
+
+               if(this->myMetricEvaluator->GetFilter(tmpObj, *sample) == true){
+
                // No, it is not a representative. Evaluate distance
                distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
                // Is this a qualified object?
                if (distance <= range){
                   // Yes! Put it in the result set.
+
+
                   result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+
+                }
                }//end if
             }//end if
          }//end for
@@ -4573,6 +4617,309 @@ void tmpl_stSlimTree::RangeQuery(
       tMetricTree::myPageManager->ReleasePage(currPage);
    }//end if
 }//end stSlimTree<ObjectType, EvaluatorType>::RangeQuery
+
+
+
+//------------------------------------------------------------------------------
+template <class ObjectType, class EvaluatorType>
+stResult<ObjectType> * tmpl_stSlimTree::ExistsQuery(
+            ObjectType * sample, double range){
+   tResult * result = new tResult();  // Create result
+   stPage * currPage;
+   stSlimNode * currNode;
+   ObjectType tmpObj;
+   u_int32_t idx, numberOfEntries;
+   double distance;
+   #ifdef __stMAMVIEW__
+      stMessageString title;
+      stMessageString comment;
+   #endif //__stMAMVIEW__
+
+   // Set the information.
+   result->SetQueryInfo((ObjectType*) sample->Clone(), RANGEQUERY, -1, range, false);
+
+   // Visualization support
+   #ifdef __stMAMVIEW__
+      MAMViewer->SetQueryInfo(0, range);
+      MAMViewer->SetLevel(0);
+      title.Append("Slim-Tree: Range Query with page size ");
+      title.Append((int) tMetricTree::myPageManager->GetMinimumPageSize());
+      comment.Append("The radius of this range query is ");
+      comment.Append((double)range);
+      MAMViewer->BeginAnimation(title.GetStr(), comment.GetStr());
+   #endif //__stMAMVIEW__
+
+   // Evaluate the root node.
+   if (this->GetRoot() != 0){
+      // Read node...
+      currPage = tMetricTree::myPageManager->GetPage(this->GetRoot());
+      currNode = stSlimNode::CreateNode(currPage);
+
+      // Is it an Index node?
+      if (currNode->GetNodeType() == stSlimNode::INDEX){
+         // Get Index node
+         stSlimIndexNode * indexNode = (stSlimIndexNode *)currNode;
+         numberOfEntries = indexNode->GetNumberOfEntries();
+
+         // Visualization support
+         #ifdef __stMAMVIEW__
+            MAMViewer->LevelUp();
+            comment.Clear();
+            comment.Append("Root is the index node ");
+            comment.Append((int) this->GetRoot());
+            MAMViewer->BeginFrame(comment.GetStr());
+            // for each entry...
+            for (idx = 0; idx < numberOfEntries; idx++) {
+               // Add all child nodes all active
+               tmpObj.Unserialize(indexNode->GetObject(idx),
+                                  indexNode->GetObjectSize(idx));
+               MAMViewer->SetNode(indexNode->GetIndexEntry(idx).PageID, &tmpObj,
+                     indexNode->GetIndexEntry(idx).Radius, this->GetRoot(), 0, true);
+            }//end for
+            MAMViewer->SetResult(sample, result);
+            MAMViewer->EndFrame();
+         #endif //__stMAMVIEW__
+
+         // For each entry...
+         for (idx = 0; idx < numberOfEntries; idx++) {
+            // Rebuild the object
+            tmpObj.Unserialize(indexNode->GetObject(idx),
+                               indexNode->GetObjectSize(idx));
+            // Evaluate distance
+            distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
+            // test if this subtree qualifies.
+            if (distance <= range + indexNode->GetIndexEntry(idx).Radius){
+               // Yes! Analyze this subtree.
+               if(result->GetNumOfEntries() == 0){
+                  this->ExistsQuery(indexNode->GetIndexEntry(idx).PageID, result,
+                                 sample, range, distance);
+               }else{
+                  return result;
+               }
+            }//end if
+         }//end for
+         
+      }else{
+         // No, it is a leaf node. Get it.
+         stSlimLeafNode * leafNode = (stSlimLeafNode *)currNode;
+         numberOfEntries = leafNode->GetNumberOfEntries();
+
+         #ifdef __stMAMVIEW__
+            comment.Append("Root is the leaf node ");
+            comment.Append((int) this->GetRoot());
+            MAMViewer->BeginFrame(comment.GetStr());
+            // for each entry...
+            for (idx = 0; idx < numberOfEntries; idx++) {
+               // Add objects to the node
+               tmpObj.Unserialize(leafNode->GetObject(idx),
+                                  leafNode->GetObjectSize(idx));
+               MAMViewer->SetObject(&tmpObj, this->GetRoot(), true);
+            }//end for
+            MAMViewer->EndFrame();
+         #endif //__stMAMVIEW__
+         
+         // For each entry...
+         for (idx = 0; idx < numberOfEntries; idx++) {
+            // Rebuild the object
+            tmpObj.IncludedUnserialize(leafNode->GetObject(idx),
+                               leafNode->GetObjectSize(idx));
+
+            if(this->myMetricEvaluator->GetFilter(tmpObj, *sample) == true){
+            // Evaluate distance
+            distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
+            // is it a object that qualified?
+            if (distance <= range){
+               // Yes! Put it in the result set.
+            
+               result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+               return result;
+              }
+            }//end if
+         }//end for
+      }//end else
+
+      // Free it all
+      delete currNode;
+	  currNode = 0;
+      tMetricTree::myPageManager->ReleasePage(currPage);
+   }//end if
+
+   // Visualization support
+   #ifdef __stMAMVIEW__
+      // Add the last frame with the final result
+      comment.Clear();
+      comment.Append("The final result has ");
+      comment.Append((int)result->GetNumOfEntries());
+      comment.Append(" object(s) and radius ");
+      comment.Append((double)result->GetMaximumDistance());
+      MAMViewer->BeginFrame(comment.GetStr());
+      MAMViewer->SetResult(sample, result);
+      MAMViewer->EndFrame();
+      MAMViewer->EndAnimation();
+   #endif //__stMAMVIEW__
+   return result;
+}//end stSlimTree<ObjectType, EvaluatorType>::RangeQuery
+
+//------------------------------------------------------------------------------
+template <class ObjectType, class EvaluatorType>
+void tmpl_stSlimTree::ExistsQuery(
+         u_int32_t pageID, tResult * result, ObjectType * sample,
+         double range, double distanceRepres){
+   stPage * currPage;
+   stSlimNode * currNode;
+   ObjectType tmpObj;
+   double distance;
+   u_int32_t idx;
+   u_int32_t numberOfEntries;
+   #ifdef __stMAMVIEW__
+      stMessageString comment;
+   #endif //__stMAMVIEW__
+
+   // Let's search
+   if (pageID != 0){
+      // Read node...
+      currPage = tMetricTree::myPageManager->GetPage(pageID);
+      currNode = stSlimNode::CreateNode(currPage);
+      // Is it an Index node?
+      if (currNode->GetNodeType() == stSlimNode::INDEX) {
+         // Get Index node
+         stSlimIndexNode * indexNode = (stSlimIndexNode *)currNode;
+         numberOfEntries = indexNode->GetNumberOfEntries();
+
+         // Visualization support
+         #ifdef __stMAMVIEW__
+            MAMViewer->LevelUp();
+            comment.Clear();
+            comment.Append("Entering in the index node ");
+            comment.Append((int) pageID);
+            comment.Append(" at level ");
+            comment.Append((int)  MAMViewer->GetLevel());
+            MAMViewer->BeginFrame(comment.GetStr());
+            MAMViewer->EnableNode(pageID);
+            // for each entry...
+            for (idx = 0; idx < numberOfEntries; idx++) {
+               // Add all child nodes all active
+               tmpObj.Unserialize(indexNode->GetObject(idx),
+                                  indexNode->GetObjectSize(idx));
+               MAMViewer->SetNode(indexNode->GetIndexEntry(idx).PageID, &tmpObj,
+                     indexNode->GetIndexEntry(idx).Radius, pageID, 0, true);
+            }//end for
+            MAMViewer->SetResult(sample, result);
+            MAMViewer->EndFrame();
+         #endif //__stMAMVIEW__
+
+         // For each entry...
+         for (idx = 0; idx < numberOfEntries; idx++) {
+            // use of the triangle inequality to cut a subtree
+            if ( fabs(distanceRepres - indexNode->GetIndexEntry(idx).Distance) <=
+                      range + indexNode->GetIndexEntry(idx).Radius){
+               // Rebuild the object
+               tmpObj.Unserialize(indexNode->GetObject(idx),
+                                  indexNode->GetObjectSize(idx));
+               // Evaluate distance
+               distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
+               // is this a qualified subtree?
+               if (distance <= range + indexNode->GetIndexEntry(idx).Radius){
+                  // Yes! Analyze it!
+
+
+                     if(result->GetNumOfEntries() == 0){
+                     
+                        this->ExistsQuery(indexNode->GetIndexEntry(idx).PageID, result,
+                                    sample, range, distance);
+                     }
+                  
+                  #ifdef __stMAMVIEW__
+                     comment.Clear();
+                     comment.Append("Returning to the index node ");
+                     comment.Append((int) pageID);
+                     comment.Append(" at level ");
+                     comment.Append((int)  MAMViewer->GetLevel());
+                     MAMViewer->BeginFrame(comment.GetStr());
+                     MAMViewer->EnableNode(pageID);
+                     MAMViewer->EndFrame();
+                  #endif //__stMAMVIEW__
+               }//end if
+            }//end if
+         }//end for
+
+         // Visualization support
+         #ifdef __stMAMVIEW__
+            MAMViewer->LevelDown();
+         #endif //__stMAMVIEW__
+      }else{
+         // No, it is a leaf node. Get it.
+         stSlimLeafNode * leafNode = (stSlimLeafNode *)currNode;
+         numberOfEntries = leafNode->GetNumberOfEntries();
+
+         #ifdef __stMAMVIEW__
+            comment.Clear();
+            comment.Append("Entering in the leaf node ");
+            comment.Append((int) pageID);
+            comment.Append(" at level ");
+            comment.Append((int)  MAMViewer->GetLevel());
+            MAMViewer->BeginFrame(comment.GetStr());
+            MAMViewer->EnableNode(pageID);
+            // for each entry...
+            for (idx = 0; idx < numberOfEntries; idx++) {
+               // Add objects to the node
+               tmpObj.Unserialize(leafNode->GetObject(idx),
+                                  leafNode->GetObjectSize(idx));
+               MAMViewer->SetObject(&tmpObj, pageID, true);
+            }//end for
+            MAMViewer->EndFrame();
+         #endif //__stMAMVIEW__
+         
+         // for each entry...
+         for (idx = 0; idx < numberOfEntries; idx++) {
+            // use of the triangle inequality.
+            if ( fabs(distanceRepres - leafNode->GetLeafEntry(idx).Distance) <=
+                      range){
+               // Rebuild the object
+               tmpObj.IncludedUnserialize(leafNode->GetObject(idx),
+                                  leafNode->GetObjectSize(idx));
+               
+               if(this->myMetricEvaluator->GetFilter(tmpObj, *sample) == true){
+
+               // No, it is not a representative. Evaluate distance
+               distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
+               // Is this a qualified object?
+               if (distance <= range){
+                  // Yes! Put it in the result set.
+
+                  result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+
+                  break;
+
+                 }
+               }//end if
+            }//end if
+         }//end for
+
+         #ifdef __stMAMVIEW__
+            comment.Clear();
+            comment.Append("The result after the leaf node ");
+            comment.Append((int) pageID);
+            comment.Append(" at level ");
+            comment.Append((int)  MAMViewer->GetLevel());
+            comment.Append(" has ");
+            comment.Append((int)result->GetNumOfEntries());
+            comment.Append(" object(s) and radius ");
+            comment.Append((double)result->GetMaximumDistance());
+            MAMViewer->BeginFrame(comment.GetStr());
+            MAMViewer->SetResult(sample, result);
+            MAMViewer->EndFrame();
+         #endif //__stMAMVIEW__
+      }//end else
+
+      // Free it all
+      delete currNode;
+	  currNode = 0;
+      tMetricTree::myPageManager->ReleasePage(currPage);
+   }//end if
+}//end stSlimTree<ObjectType, EvaluatorType>::RangeQuery
+
+//------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
@@ -5087,7 +5434,7 @@ void stSlimTree<ObjectType, EvaluatorType>::ListNearestQuery(tResult * result,
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
 stResult<ObjectType> * stSlimTree<ObjectType, EvaluatorType>::NearestQuery(
-      ObjectType * sample, u_int32_t k, bool tie){
+      ObjectType * sample, u_int32_t k, bool tie, bool tiebreaker){
    tResult * result = new tResult();  // Create result
    #ifdef __stMAMVIEW__
       stMessageString title;
@@ -5109,7 +5456,7 @@ stResult<ObjectType> * stSlimTree<ObjectType, EvaluatorType>::NearestQuery(
 
    // Let's search
    if (this->GetRoot() != 0){
-      this->NearestQuery(result, sample, MAXDOUBLE, k);
+      this->NearestQuery(result, sample, MAXDOUBLE, k, tiebreaker);
    }//end if
 
    // Visualization support
@@ -5129,10 +5476,15 @@ stResult<ObjectType> * stSlimTree<ObjectType, EvaluatorType>::NearestQuery(
    return result;
 }//end stSlimTree<ObjectType, EvaluatorType>::NearestQuery
 
+
+#include <list>
+#include <iterator>
+
 //------------------------------------------------------------------------------
 template <class ObjectType, class EvaluatorType>
 void stSlimTree<ObjectType, EvaluatorType>::NearestQuery(tResult * result,
-         ObjectType * sample, double rangeK, u_int32_t k){
+         ObjectType * sample, double rangeK, u_int32_t k, bool tiebreaker){
+   
    tDynamicPriorityQueue * queue;
    u_int32_t idx;
    stPage * currPage;
@@ -5247,23 +5599,124 @@ void stSlimTree<ObjectType, EvaluatorType>::NearestQuery(tResult * result,
             if ( fabs(distanceRepres - leafNode->GetLeafEntry(idx).Distance) <=
                       rangeK){
                // Rebuild the object
-               tmpObj.Unserialize(leafNode->GetObject(idx),
+               tmpObj.IncludedUnserialize(leafNode->GetObject(idx),
                                   leafNode->GetObjectSize(idx));
+
+            if(this->myMetricEvaluator->GetFilter(tmpObj, *sample) == true){
+
                // When this entry is a representative, it does not need to evaluate
                // a distance, because distanceRepres is iqual to distance.
                // Evaluate distance
                distance = this->myMetricEvaluator->GetDistance(tmpObj, *sample);
                //test if the object qualify
                if (distance <= rangeK){
-                  // Add the object.
-                  result->AddPair((ObjectType*) tmpObj.Clone(), distance);
-                  // there is more than k elements?
-                  if (result->GetNumOfEntries() >= k){
-                     //cut if there is more than k elements
-                     result->Cut(k);
-                     //may I use this for performance?
-                     rangeK = result->GetMaximumDistance();
-                  }//end if
+                
+                  if(tiebreaker){
+
+                     if(result->GetNumOfEntries() < (k-1)){
+                        //I don't have k-2 elements yet, I can just add
+
+                        result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+
+                     }else if(result->GetNumOfEntries() == (k-1)){
+
+                        //I'm going to have k elements. Add the element and calculate the radius
+
+                        result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+                        rangeK = result->GetMaximumDistance();
+                        //std::cout << "Maximum distance: " <<  rangeK << "\n";
+
+
+                     }else if(result->GetNumOfEntries() == k && distance < rangeK){
+
+                        //I already have k elements. The new element is not a tie. I add it, cut the last element and recalculate the distance.
+
+                        result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+
+                        int index = k;
+
+                        std::list<ObjectType> sortList;
+
+                        while(result->GetPair(index)->GetDistance() == rangeK){
+                        
+                           ObjectType* objAux = (ObjectType*) result->GetPair(index)->GetObject()->Clone();  
+
+                           sortList.push_front(*objAux);
+
+                           result->RemoveLast();
+
+                           index--;
+
+                           if(index == -1){
+                              break;
+                           }
+
+                        }
+                        
+                        sortList.sort();
+
+                        for(typename std::list<ObjectType>::iterator iter= sortList.begin(); iter != sortList.end(); iter++){
+
+                           result->AddPair((ObjectType*) iter->Clone(), rangeK);
+
+                        }
+
+                        result->Cut(k);
+                        rangeK = result->GetMaximumDistance();
+
+
+                     }else if(result->GetNumOfEntries() == k && distance == rangeK){
+                        //I already have k elements. The new element is a tie.
+
+                        result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+
+                        int index = k;
+
+                        std::list<ObjectType> sortList;
+
+                        while(result->GetPair(index)->GetDistance() == distance){
+                        
+                           ObjectType* objAux = (ObjectType*) result->GetPair(index)->GetObject()->Clone();  
+
+                           sortList.push_front(*objAux);
+
+                           result->RemoveLast();
+
+                           index--;
+
+                           if(index == -1){
+                              break;
+                           }
+
+                        }
+
+                        sortList.sort();
+
+                        for(typename std::list<ObjectType>::iterator iter= sortList.begin(); iter != sortList.end(); iter++){
+
+                           result->AddPair((ObjectType*) iter->Clone(), distance);
+
+                        }
+                           
+                        result->Cut(k);
+
+                     }
+                  }else {
+                 
+                         // Add the object.
+                     result->AddPair((ObjectType*) tmpObj.Clone(), distance);
+                     // there is more than k elements?
+                     if (result->GetNumOfEntries() >= k){
+                        //cut if there is more than k elements
+                        result->Cut(k);
+                        //may I use this for performance?
+                        rangeK = result->GetMaximumDistance();
+                     }//end if
+
+                  }
+            
+
+                    }
                }//end if
             }//end if
          }//end for
@@ -5319,6 +5772,7 @@ void stSlimTree<ObjectType, EvaluatorType>::NearestQuery(tResult * result,
 }//end stSlimTree<ObjectType, EvaluatorType>::NearestQuery
 
 //------------------------------------------------------------------------------
+//
 template <class ObjectType, class EvaluatorType>
 stResult<ObjectType> * stSlimTree<ObjectType, EvaluatorType>::FarthestQuery(
       ObjectType * sample, u_int32_t k, bool tie){
@@ -8023,7 +8477,7 @@ double tmpl_stSlimTree::SlimDownRecursive(u_int32_t pageID, int level){
 
    // Let's search
    if (pageID != 0){
-
+      
       // Read node...
       currPage = tMetricTree::myPageManager->GetPage(pageID);
       currNode = stSlimNode::CreateNode(currPage);

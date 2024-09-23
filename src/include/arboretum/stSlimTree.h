@@ -206,6 +206,9 @@ class stSlimLogicNode{
       */
       int AddEntry(u_int32_t size, const unsigned char * object);
 
+
+      int AddEntryForIndex(u_int32_t size, const unsigned char * object);
+
       /**
       * Returns the number of entries in this node.
       */
@@ -1370,6 +1373,11 @@ class stSlimTree: public stMetricTree <ObjectType, EvaluatorType> {
       */
       tResult * RangeQuery(ObjectType * sample, double range);
 
+      tResult * GetEmptyResult();
+
+      tResult * ExistsQuery(ObjectType * sample, double range);
+
+
       /**
       * This method will perform a reverse of range query.
       * The result will be a set of pairs object/distance.
@@ -1429,7 +1437,7 @@ class stSlimTree: public stMetricTree <ObjectType, EvaluatorType> {
       * @warning The instance of tResult returned must be destroied by user.
       * @see void NearestQuery
       */
-      tResult * NearestQuery(ObjectType * sample, u_int32_t k, bool tie = false);
+      tResult * NearestQuery(ObjectType * sample, u_int32_t k, bool tie = false, bool tiebreaker = false);
 
       /**
       * This method will perform a K-Farthest Neighbor query using a global priority
@@ -2540,6 +2548,10 @@ class stSlimTree: public stMetricTree <ObjectType, EvaluatorType> {
                       ObjectType * sample, double range,
                       double distanceRepres);
 
+      void ExistsQuery(u_int32_t pageID, tResult * result,
+                      ObjectType * sample, double range,
+                      double distanceRepres);
+
       /**
       * This method will perform a reverse range query.
       * The result will be a set of pairs object/distance.
@@ -2598,7 +2610,7 @@ class stSlimTree: public stMetricTree <ObjectType, EvaluatorType> {
       * @see tResult * NearestQuery
       */
       void NearestQuery(tResult * result, ObjectType * sample,
-                        double rangeK, u_int32_t k);
+                        double rangeK, u_int32_t k, bool tiebreaker);
 
       /**
       * This method will perform a K-Farthest Neighbor query using a priority

@@ -308,6 +308,8 @@ class stDummyTree: public stMetricTree<ObjectType, EvaluatorType>{
       */
       virtual tResult * RangeQuery(tObject * sample, double range);
 
+      virtual tResult * ExistsQuery(tObject * sample, double range);
+
       /**
       * This method will perform a reverse range query.
       * The result will be a set of pairs object/distance.
@@ -329,7 +331,7 @@ class stDummyTree: public stMetricTree<ObjectType, EvaluatorType>{
       * @return The result or NULL if this method is not implemented.
       * @warning The instance of tResult returned must be destroied by user.
       */
-      virtual tResult * NearestQuery(tObject * sample, u_int32_t k, bool tie = false);
+      virtual tResult * NearestQuery(tObject * sample, u_int32_t k, bool tie = false,  bool tiebreaker = false);
 
       /**
       * This method will perform a K-Farthest neighbor query.

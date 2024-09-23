@@ -109,14 +109,24 @@ void stResult<ObjectType>::Cut(unsigned int limit){
    double max;
 
    if(this->Tie){
+      
       tItePairs ite = Pairs.begin();
       for (int i = 0; i < (limit-1) && ite!= Pairs.end(); i++, ite++);
       max = (*ite)->GetDistance();
-      //ite++; 
-      for(; ite!= Pairs.end(); ite++){
-         if ((*ite)->GetDistance() > max)            
-            RemoveLast();
-      }//end for
+
+      bool stop = false;
+      while(!stop){
+
+         tItePairs lastElem = Pairs.end();
+         lastElem--;
+         double lastValue = (*lastElem)->GetDistance();
+
+         if (lastValue > max)            
+               RemoveLast();
+         else
+            stop = true;
+         }
+         
    }else{
       while(Pairs.size() > limit){
         RemoveLast();
